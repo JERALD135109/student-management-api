@@ -1,5 +1,6 @@
 package com.jerald.demo;
 
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 import java.util.*;
@@ -24,12 +25,12 @@ public class StudentController {
     }
 
     @PostMapping
-    public Student addStudent(@RequestBody Student student) {
+    public Student addStudent(@Valid @RequestBody Student student) {
         return studentRepository.save(student);
     }
 
     @PutMapping("/{id}")
-    public Student updateStudent(@PathVariable int id, @RequestBody Student updatedStudent) {
+    public Student updateStudent(@PathVariable int id, @Valid @RequestBody Student updatedStudent) {
         Student s = studentRepository.findById(id)
                 .orElseThrow(() -> new StudentNotFoundException(id));
         s.setName(updatedStudent.getName());

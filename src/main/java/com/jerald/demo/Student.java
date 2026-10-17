@@ -4,6 +4,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.validation.constraints.NotBlank;
 
 @Entity
 public class Student {
@@ -11,7 +12,11 @@ public class Student {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
+
+    @NotBlank(message = "Name is required")
     private String name;
+
+    @NotBlank(message = "Department is required")
     private String department;
 
     public Student() {
@@ -47,3 +52,4 @@ public class Student {
         this.department = department;
     }
 }
+
