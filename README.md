@@ -1,3 +1,4 @@
+[![CI](https://github.com/JERALD135109/student-management-api/actions/workflows/ci.yml/badge.svg)](https://github.com/JERALD135109/student-management-api/actions/workflows/ci.yml)
 # Student Management System
 
 A full-stack student records app: a Spring Boot REST API backed by MySQL, with a plain HTML/JavaScript frontend. The whole stack runs with one command using Docker Compose.
