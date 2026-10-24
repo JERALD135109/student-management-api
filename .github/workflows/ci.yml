@@ -21,7 +21,7 @@ jobs:
         ports:
           - 3306:3306
         options: >-
-          --health-cmd="mysqladmin ping -h 127.0.0.1 -proot123"
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot123 --silent"
           --health-interval=5s
           --health-timeout=5s
           --health-retries=20
@@ -38,4 +38,8 @@ jobs:
           cache: maven
 
       - name: Build and run tests
+        env:
+          SPRING_DATASOURCE_URL: jdbc:mysql://127.0.0.1:3306/studentdb?allowPublicKeyRetrieval=true&useSSL=false&serverTimezone=UTC
+          SPRING_DATASOURCE_USERNAME: springuser
+          SPRING_DATASOURCE_PASSWORD: spring123
         run: ./mvnw -B clean verify
