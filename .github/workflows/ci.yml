@@ -37,6 +37,22 @@ jobs:
           java-version: '21'
           cache: maven
 
+      - name: Debug MySQL service (temporary)
+        if: always()
+        run: |
+          echo "===== 1. Containers ====="
+          docker ps -a
+          MYSQL_ID=$(docker ps -aq --filter ancestor=mysql:8.4 | head -n1)
+          echo "MySQL container id: ${MYSQL_ID:-NOT FOUND}"
+          echo "===== 2. MySQL container logs (last 80 lines) ====="
+          docker logs "$MYSQL_ID" --tail 80 || true
+          echo "===== 3. TCP port 3306 on 127.0.0.1 ====="
+          (echo > /dev/tcp/127.0.0.1/3306) 2>/dev/null && echo "PORT 3306 OPEN" || echo "PORT 3306 CLOSED"
+          echo "===== 4. springuser login inside the container ====="
+          docker exec "$MYSQL_ID" mysql -uspringuser -pspring123 -e "SELECT version(), current_user(), current_database();" || true
+          echo "===== 5. Auth plugin for springuser ====="
+          docker exec "$MYSQL_ID" mysql -uroot -proot123 -e "SELECT user, host, plugin FROM mysql.user WHERE user='springuser';" || true
+
       - name: Build and run tests
         env:
           SPRING_DATASOURCE_URL: jdbc:mysql://127.0.0.1:3306/studentdb?allowPublicKeyRetrieval=true&useSSL=false&serverTimezone=UTC
