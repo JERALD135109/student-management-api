@@ -7,23 +7,34 @@ import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
 
+    private final JwtAuthFilter jwtAuthFilter;
+
+    public SecurityConfig(JwtAuthFilter jwtAuthFilter) {
+        this.jwtAuthFilter = jwtAuthFilter;
+    }
+
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-            // REST API with HTTP Basic: CSRF protection is not needed here
+            // Stateless REST API: no CSRF protection needed
             .csrf(csrf -> csrf.disable())
             .authorizeHttpRequests(auth -> auth
-                // Public: homepage, static files, error pages, health check
-                .requestMatchers("/", "/index.html", "/error", "/actuator/health", "/actuator/health/**").permitAll()
+                // Public: homepage, static files, errors, health, and login itself
+                .requestMatchers("/", "/index.html", "/error", "/auth/login",
+                                 "/actuator/health", "/actuator/health/**").permitAll()
                 // Public: reading student records
                 .requestMatchers(HttpMethod.GET, "/students", "/students/**").permitAll()
-                // Everything else (POST, PUT, DELETE) needs a login
+                // Everything else needs a valid token (or Basic login)
                 .anyRequest().authenticated())
+            // Check the Bearer token on every request, before the default login check
+            .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
+            // Basic login still works, so existing curl tests and the current frontend keep working
             .httpBasic(Customizer.withDefaults());
         return http.build();
     }
