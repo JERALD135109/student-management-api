@@ -58,6 +58,7 @@
   .actions { grid-column: 1 / -1; display: flex; gap: 12px; }
 
   button { font: inherit; cursor: pointer; }
+  button:disabled { opacity: 0.6; cursor: wait; }
   button.primary {
     padding: 9px 18px;
     color: #fff;
@@ -159,7 +160,10 @@
 </main>
 
 <script>
+  // Dockerfile replaces the localhost address with a relative path when building for Render.
+  // AUTH_URL is derived from API so that the same replacement applies to it too.
   const API = 'http://localhost:8080/students';
+  const AUTH_URL = API.replace('/students', '/auth/login');
 
   const form = document.getElementById('studentForm');
   const nameInput = document.getElementById('name');
@@ -178,17 +182,13 @@
   const authState = document.getElementById('authState');
 
   let editingId = null;
-  // Credentials live only in memory: they are lost on page refresh (on purpose).
-  let authHeader = null;
+  // The JWT lives only in memory: refreshing the page signs the user out (on purpose).
+  let authToken = null;
   let currentUser = null;
 
-  function toBase64(text) {
-    return btoa(unescape(encodeURIComponent(text)));
-  }
-
   function setAuthState() {
-    if (authHeader) {
-      authState.textContent = 'Signed in as ' + currentUser + '. Changes are checked when you save.';
+    if (authToken) {
+      authState.textContent = 'Signed in as ' + currentUser + '. The session lasts 1 hour.';
       signOutBtn.hidden = false;
     } else {
       authState.textContent = 'Not signed in. Anyone can view the list, but add, edit and delete need sign-in.';
@@ -196,32 +196,51 @@
     }
   }
 
-  function signIn() {
+  async function signIn() {
     const user = loginUser.value.trim();
     const pass = loginPass.value;
     if (!user || !pass) {
       showMessage('Enter both username and password.', 'error');
       return;
     }
-    authHeader = 'Basic ' + toBase64(user + ':' + pass);
-    currentUser = user;
-    loginPass.value = '';
-    setAuthState();
-    showMessage('Signed in. Your login is checked the first time you save.', 'ok');
+
+    signInBtn.disabled = true;
+    try {
+      const res = await fetch(AUTH_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: user, password: pass })
+      });
+      const data = await res.json().catch(function () { return null; });
+
+      if (res.ok && data && data.token) {
+        authToken = data.token;
+        currentUser = user;
+        loginPass.value = '';
+        setAuthState();
+        showMessage('Signed in.', 'ok');
+      } else {
+        showMessage('Wrong username or password.', 'error');
+      }
+    } catch (err) {
+      serverDown();
+    } finally {
+      signInBtn.disabled = false;
+    }
   }
 
   function signOut() {
-    authHeader = null;
+    authToken = null;
     currentUser = null;
     setAuthState();
     showMessage('Signed out.', 'ok');
   }
 
   function handleAuthFailure() {
-    authHeader = null;
+    authToken = null;
     currentUser = null;
     setAuthState();
-    showMessage('Wrong username or password (or not signed in). Sign in again and retry.', 'error');
+    showMessage('Your session is missing or has expired (1 hour). Sign in again and retry.', 'error');
   }
 
   function showMessage(text, kind) {
@@ -245,14 +264,14 @@
     });
   }
 
-  // Credentials are attached only to non-GET requests. Reading is public, and sending
-  // a wrong Authorization header with a GET would be rejected even though GET is open.
+  // The Bearer token is attached only to non-GET requests. Reading is public, and an
+  // invalid Authorization header on a GET would be rejected even though GET is open.
   async function request(url, options) {
     const opts = Object.assign({}, options || {});
     const method = (opts.method || 'GET').toUpperCase();
     const headers = Object.assign({}, opts.headers || {});
-    if (authHeader && method !== 'GET') {
-      headers['Authorization'] = authHeader;
+    if (authToken && method !== 'GET') {
+      headers['Authorization'] = 'Bearer ' + authToken;
     }
     opts.headers = headers;
     const res = await fetch(url, opts);
@@ -276,7 +295,7 @@
   }
 
   function startEdit(student) {
-    if (!authHeader) {
+    if (!authToken) {
       showMessage('Sign in first to edit a student.', 'error');
       loginUser.focus();
       return;
@@ -346,7 +365,7 @@
   }
 
   async function deleteStudent(student) {
-    if (!authHeader) {
+    if (!authToken) {
       showMessage('Sign in first to delete a student.', 'error');
       loginUser.focus();
       return;
@@ -372,7 +391,7 @@
     clearFieldErrors();
     showMessage('');
 
-    if (!authHeader) {
+    if (!authToken) {
       showMessage('Sign in first to add or edit a student.', 'error');
       loginUser.focus();
       return;
